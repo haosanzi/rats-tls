@@ -1,0 +1,44 @@
+name: Basic Compilation Check
+
+on: push
+
+jobs:
+  basic_complication_check:
+    # Run all steps in the compilation testing containers
+    strategy:
+      matrix:
+        tag: [ubuntu18.04, centos8.2, alinux2]
+
+    container: runetest/compilation-testing:${{ matrix.tag }}
+
+    # Use GitHub-hosted runner Ubuntu 18.04
+    runs-on: ubuntu-18.04
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ github.workspace }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: Preparations
+        run:
+          echo "CPU_NUM=$(nproc --all)" >> $GITHUB_ENV;
+
+      - name: Compile rats-tls host mode
+        run:
+          cmake -DRATS_TLS_BUILD_MODE="host" -DBUILD_SAMPLES=on -H. -Bbuild;
+          make -j${CPU_NUM} -C build install && make -C build clean && rm -rf build;
+
+      - name: Compile rats-tls occlum mode
+        run:
+          cmake -DRATS_TLS_BUILD_MODE="occlum" -DBUILD_SAMPLES=on -H. -Bbuild;
+          make -j${CPU_NUM} -C build install && make -C build clean && rm -rf build;
+
+      - name: Compile rats-tls sgx mode
+        if: ${{ !contains(matrix.tag, 'alinux2') }}
+        run:
+          cmake -DRATS_TLS_BUILD_MODE="sgx" -DBUILD_SAMPLES=on -H. -Bbuild;
+          make -j${CPU_NUM} -C build install && make -C build clean && rm -rf build
